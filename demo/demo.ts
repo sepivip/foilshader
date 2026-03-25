@@ -85,9 +85,12 @@ async function main() {
   const animSpeedSlider = $('anim-speed') as HTMLInputElement
   const animSpeedVal = $('anim-speed-val')
 
-  // Mobile bottom sheet toggle
+  // Mobile bottom sheet — start collapsed
   const controlsPanel = $('controls')
   const controlsToggle = $('controls-toggle')
+  if (window.innerWidth <= 768) {
+    controlsPanel.classList.add('collapsed')
+  }
   controlsToggle.addEventListener('click', () => {
     controlsPanel.classList.toggle('collapsed')
   })
