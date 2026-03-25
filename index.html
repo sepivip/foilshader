@@ -2,93 +2,135 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Holographic Foil — Interactive Demo</title>
-  <script type="module" crossorigin src="./assets/index-DToHBahs.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-Bt5fmLvy.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Holographic Foil</title>
+  <script type="module" crossorigin src="./assets/index-BG1cNErn.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DbU9Zcme.css">
 </head>
 <body>
   <div id="app">
     <canvas id="canvas"></canvas>
 
-    <!-- Theme toggle -->
-    <button id="theme-toggle" title="Toggle theme">&#9788;</button>
+    <!-- Drop zone overlay -->
+    <div class="drop-overlay" id="drop-overlay">
+      <span>Drop image here</span>
+    </div>
 
-    <!-- Gyroscope permission (iOS) -->
-    <button id="gyro-btn" style="display:none">Enable Gyroscope</button>
+    <!-- Top bar -->
+    <div class="top-bar">
+      <div class="top-left">
+        <button class="icon-btn" id="theme-toggle" title="Toggle theme">&#9788;</button>
+        <button class="pill-btn green" id="gyro-btn" style="display:none">Gyroscope</button>
+      </div>
+      <div class="top-right">
+        <button class="pill-btn accent" id="upload-btn">Upload Image</button>
+      </div>
+    </div>
 
-    <!-- Upload -->
-    <button id="upload-btn">Upload Card Image</button>
     <input type="file" id="file-input" accept="image/*" hidden>
 
     <!-- Controls panel -->
     <div id="controls">
-      <button id="controls-toggle">&#9650; Controls</button>
+      <button id="controls-toggle"><div class="drag-handle"></div></button>
+
+      <div id="controls-header">
+        <h2>Holographic Foil</h2>
+        <p>Physics-based diffraction shader</p>
+      </div>
+
       <div id="controls-inner">
 
-        <label>
-          Quality
-          <select id="quality">
-            <option value="fast">Fast</option>
-            <option value="balanced" selected>Balanced</option>
-            <option value="physical">Physical</option>
-          </select>
-        </label>
+        <!-- Rendering -->
+        <div class="control-group">
+          <div class="control-group-title">Rendering</div>
+          <div class="control-row">
+            <span class="control-label">Quality</span>
+            <div class="select-wrap">
+              <select id="quality">
+                <option value="fast">Fast</option>
+                <option value="balanced" selected>Balanced</option>
+                <option value="physical">Physical</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
-        <label>
-          Foil Pattern
-          <select id="foil-pattern">
-            <option value="full" selected>Full Holo</option>
-            <option value="cosmos">Cosmos</option>
-            <option value="linear">Linear</option>
-            <option value="star">Star Sparkle</option>
-            <option value="reverse">Reverse Holo</option>
-            <option value="diamond">Diamond</option>
-            <option value="chevron">Chevron</option>
-            <option value="hexagon">Honeycomb</option>
-            <option value="swirl">Swirl</option>
-            <option value="crosshatch">Crosshatch</option>
-            <option value="scales">Dragon Scales</option>
-            <option value="circuit">Circuit Board</option>
-            <option value="ripple">Ripple</option>
-            <option value="cracked-ice">Cracked Ice</option>
-            <option value="confetti">Confetti</option>
-          </select>
-        </label>
+        <!-- Foil Style -->
+        <div class="control-group">
+          <div class="control-group-title">Foil Style</div>
+          <div class="control-row">
+            <span class="control-label">Pattern</span>
+            <div class="select-wrap">
+              <select id="foil-pattern">
+                <option value="full" selected>Full Holo</option>
+                <option value="cosmos">Cosmos</option>
+                <option value="linear">Linear</option>
+                <option value="star">Star Sparkle</option>
+                <option value="reverse">Reverse Holo</option>
+                <option value="diamond">Diamond</option>
+                <option value="chevron">Chevron</option>
+                <option value="hexagon">Honeycomb</option>
+                <option value="swirl">Swirl</option>
+                <option value="crosshatch">Crosshatch</option>
+                <option value="scales">Dragon Scales</option>
+                <option value="circuit">Circuit Board</option>
+                <option value="ripple">Ripple</option>
+                <option value="cracked-ice">Cracked Ice</option>
+                <option value="confetti">Confetti</option>
+              </select>
+            </div>
+          </div>
+          <div class="control-row">
+            <span class="control-label">Preset</span>
+            <div class="select-wrap">
+              <select id="preset">
+                <option value="">Custom</option>
+                <option value="trading-card" selected>Trading Card</option>
+                <option value="cd-rom">CD-ROM</option>
+                <option value="credit-card">Credit Card</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
-        <label>
-          Preset
-          <select id="preset">
-            <option value="">Custom</option>
-            <option value="trading-card" selected>Trading Card</option>
-            <option value="cd-rom">CD-ROM</option>
-            <option value="credit-card">Credit Card</option>
-          </select>
-        </label>
+        <!-- Parameters -->
+        <div class="control-group">
+          <div class="control-group-title">Parameters</div>
 
-        <label>
-          Grating Period
-          <input type="range" id="grating" min="1000" max="3000" value="1800" step="10">
-          <span id="grating-val">1800nm</span>
-        </label>
+          <div class="slider-row">
+            <div class="slider-top">
+              <span class="slider-label">Grating Period</span>
+              <span class="slider-value" id="grating-val">1800nm</span>
+            </div>
+            <input type="range" id="grating" min="1000" max="3000" value="1800" step="10">
+          </div>
 
-        <label>
-          Foil Roughness
-          <input type="range" id="roughness" min="0" max="100" value="15" step="1">
-          <span id="roughness-val">0.15</span>
-        </label>
+          <div class="slider-row">
+            <div class="slider-top">
+              <span class="slider-label">Roughness</span>
+              <span class="slider-value" id="roughness-val">0.15</span>
+            </div>
+            <input type="range" id="roughness" min="0" max="100" value="15" step="1">
+          </div>
 
-        <label>
-          Foil Intensity
-          <input type="range" id="intensity" min="0" max="300" value="150" step="5">
-          <span id="intensity-val">1.50</span>
-        </label>
+          <div class="slider-row">
+            <div class="slider-top">
+              <span class="slider-label">Intensity</span>
+              <span class="slider-value" id="intensity-val">1.50</span>
+            </div>
+            <input type="range" id="intensity" min="0" max="300" value="150" step="5">
+          </div>
 
-        <label>
-          Animation Speed
-          <input type="range" id="anim-speed" min="0" max="200" value="100" step="5">
-          <span id="anim-speed-val">1.00</span>
-        </label>
+          <div class="slider-row">
+            <div class="slider-top">
+              <span class="slider-label">Animation Speed</span>
+              <span class="slider-value" id="anim-speed-val">1.00</span>
+            </div>
+            <input type="range" id="anim-speed" min="0" max="200" value="100" step="5">
+          </div>
+        </div>
 
       </div>
     </div>
