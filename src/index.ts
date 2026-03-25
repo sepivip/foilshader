@@ -1,3 +1,4 @@
+export { HolographicCard } from './HolographicCard'
 export { createFastFoil } from './shaders/createFastFoil'
 export { createBalancedFoil } from './shaders/createBalancedFoil'
 export { createPhysicalFoil } from './shaders/createPhysicalFoil'
@@ -6,5 +7,6 @@ export { wavelengthToRGB } from './core/spectrum'
 export { diffractionSinAngle } from './core/grating'
 export { sparkleNoise } from './core/sparkle'
 
+export type { HolographicCardOptions, QualityTier, InputMode } from './HolographicCard'
 export type { FoilMaterialOptions, FoilMaterialResult } from './shaders/createFastFoil'
 export type { FoilUniforms } from './core/uniforms'
