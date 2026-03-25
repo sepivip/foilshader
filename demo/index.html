@@ -63,14 +63,14 @@
             <span class="control-label">Mode</span>
             <div class="select-wrap">
               <select id="mask-mode">
-                <option value="pattern" selected>Pattern</option>
-                <option value="color">Color Key</option>
+                <option value="pattern">Pattern</option>
+                <option value="color" selected>Color Key</option>
               </select>
             </div>
           </div>
 
           <!-- Pattern options (shown when mode = pattern) -->
-          <div id="pattern-options">
+          <div id="pattern-options" style="display:none">
             <div class="control-row">
               <span class="control-label">Pattern</span>
               <div class="select-wrap">
@@ -96,17 +96,17 @@
           </div>
 
           <!-- Color key options (shown when mode = color) -->
-          <div id="color-options" style="display:none">
+          <div id="color-options">
             <div class="control-row">
               <span class="control-label">Target Color</span>
-              <input type="color" id="mask-color" value="#0066ff" style="width:44px;height:32px;border:none;border-radius:8px;cursor:pointer;background:transparent;">
+              <input type="color" id="mask-color" value="#143c78" style="width:44px;height:32px;border:none;border-radius:8px;cursor:pointer;background:transparent;">
             </div>
             <div class="slider-row">
               <div class="slider-top">
                 <span class="slider-label">Tolerance</span>
-                <span class="slider-value" id="tolerance-val">0.30</span>
+                <span class="slider-value" id="tolerance-val">0.40</span>
               </div>
-              <input type="range" id="mask-tolerance" min="5" max="100" value="30" step="1">
+              <input type="range" id="mask-tolerance" min="5" max="100" value="40" step="1">
             </div>
           </div>
         </div>
@@ -150,9 +150,9 @@
           <div class="slider-row">
             <div class="slider-top">
               <span class="slider-label">Intensity</span>
-              <span class="slider-value" id="intensity-val">0.60</span>
+              <span class="slider-value" id="intensity-val">1.00</span>
             </div>
-            <input type="range" id="intensity" min="0" max="300" value="60" step="5">
+            <input type="range" id="intensity" min="0" max="300" value="100" step="5">
           </div>
 
           <div class="slider-row">

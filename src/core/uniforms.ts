@@ -12,7 +12,7 @@ export function createFoilUniforms() {
     /** Foil surface roughness 0–1 */
     foilRoughness: uniform(0.15),
     /** Foil intensity multiplier */
-    foilIntensity: uniform(0.6),
+    foilIntensity: uniform(1.0),
     /** Thin-film thickness in nm (used by Physical tier) */
     foilThickness: uniform(500),
     /** Elapsed time in seconds */
@@ -20,11 +20,11 @@ export function createFoilUniforms() {
     /** Foil pattern ID (0=full, 1=cosmos, ..., 14=confetti) */
     foilPattern: uniform(0),
     /** Mask mode: 0 = pattern, 1 = color key */
-    maskMode: uniform(0),
-    /** Target color for color-key masking */
-    maskColor: uniform(new Vector3(0, 0, 1)),
+    maskMode: uniform(1),
+    /** Target color for color-key masking (RGB 0–1) */
+    maskColor: uniform(new Vector3(20 / 255, 60 / 255, 120 / 255)),
     /** Color-key tolerance (0 = exact match, 1 = very loose) */
-    maskTolerance: uniform(0.3),
+    maskTolerance: uniform(0.4),
   }
 }
 
