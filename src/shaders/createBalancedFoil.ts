@@ -14,9 +14,7 @@ import type { FoilMaterialOptions, FoilMaterialResult } from './createFastFoil'
 const NUM_WAVELENGTHS = 8
 
 /**
- * Tier 2: Balanced — 8 wavelengths, 3 orders, cross-hatch.
- * Uses very tight envelopes so only 1-2 wavelengths dominate per pixel,
- * giving saturated rainbow bands, not washed-out white.
+ * Tier 2: Balanced — 8 wavelengths, 3 grating directions, cross-hatch.
  */
 export function createBalancedFoil(options: FoilMaterialOptions = {}): FoilMaterialResult {
   const uniforms = createFoilUniforms()
@@ -37,15 +35,23 @@ export function createBalancedFoil(options: FoilMaterialOptions = {}): FoilMater
     const lightDir = normalize(vec3(uniforms.lightDir))
     const viewDir = normalize(cameraPosition.sub(positionWorld))
     const H = normalize(viewDir.add(lightDir))
+
+    // 3 grating directions for complex rainbow pattern
     const tangent = normalize(cross(n, vec3(0, 1, 0)))
     const bitangent = normalize(cross(n, tangent))
-
-    // Diffraction coordinates for two grating directions
-    const diffU = dot(H, tangent).add(uvCoord.x.sub(0.5).mul(0.7)).add(uvCoord.y.sub(0.5).mul(0.3))
-    const diffV = dot(H, bitangent).add(uvCoord.y.sub(0.5).mul(0.6)).add(uvCoord.x.sub(0.5).mul(0.2))
+    const diagonal = normalize(tangent.mul(0.707).add(bitangent.mul(0.707)))
 
     const d = float(1).div(uniforms.gratingDensity)
-    const d2 = d.mul(1.3) // second grating slightly different spacing
+    const d2 = d.mul(1.3)  // second grating, different spacing
+    const d3 = d.mul(0.85) // third grating, different spacing
+
+    const sx = uvCoord.x.sub(0.5)
+    const sy = uvCoord.y.sub(0.5)
+
+    // Diffraction coords for 3 grating orientations
+    const diff1 = dot(H, tangent).add(sx.mul(0.6)).add(sy.mul(0.2))
+    const diff2 = dot(H, bitangent).add(sy.mul(0.5)).add(sx.mul(0.15))
+    const diff3 = dot(H, diagonal).add(sx.add(sy).mul(0.35))
 
     const totalColor = vec3(0, 0, 0).toVar()
 
@@ -54,33 +60,30 @@ export function createBalancedFoil(options: FoilMaterialOptions = {}): FoilMater
       const lambda = mix(float(380), float(780), t)
       const rgb = wavelengthToRGB(lambda)
 
-      // TIGHT envelope — only wavelengths very close to the diffraction
-      // condition contribute. This keeps colors saturated.
-      // m*λ/d is the sin(θ) where this wavelength diffracts
+      // Grating 1 (horizontal): m=+1, m=-1
+      const tgt1p = lambda.div(d)
+      const w1p = max(float(1).sub(abs(diff1.sub(tgt1p)).mul(12)), float(0))
+      const tgt1m = lambda.div(d).negate()
+      const w1m = max(float(1).sub(abs(diff1.sub(tgt1m)).mul(12)), float(0))
 
-      // Grating 1: m=+1
-      const target_p1 = lambda.div(d)
-      const w_p1 = max(float(1).sub(abs(diffU.sub(target_p1)).mul(15)), float(0))
+      // Grating 2 (vertical): m=+1, m=-1
+      const tgt2p = lambda.div(d2)
+      const w2p = max(float(1).sub(abs(diff2.sub(tgt2p)).mul(12)), float(0))
+      const tgt2m = lambda.div(d2).negate()
+      const w2m = max(float(1).sub(abs(diff2.sub(tgt2m)).mul(12)), float(0))
 
-      // Grating 1: m=-1
-      const target_m1 = lambda.div(d).negate()
-      const w_m1 = max(float(1).sub(abs(diffU.sub(target_m1)).mul(15)), float(0))
+      // Grating 3 (diagonal): m=+1, m=-1
+      const tgt3p = lambda.div(d3)
+      const w3p = max(float(1).sub(abs(diff3.sub(tgt3p)).mul(12)), float(0))
+      const tgt3m = lambda.div(d3).negate()
+      const w3m = max(float(1).sub(abs(diff3.sub(tgt3m)).mul(12)), float(0))
 
-      // Grating 2 (cross-hatch): m=+1
-      const target2_p1 = lambda.div(d2)
-      const w2_p1 = max(float(1).sub(abs(diffV.sub(target2_p1)).mul(15)), float(0))
-
-      // Grating 2: m=-1
-      const target2_m1 = lambda.div(d2).negate()
-      const w2_m1 = max(float(1).sub(abs(diffV.sub(target2_m1)).mul(15)), float(0))
-
-      const totalW = w_p1.add(w_m1).add(w2_p1.mul(0.7)).add(w2_m1.mul(0.7))
-      totalColor.addAssign(rgb.mul(totalW))
+      const total = w1p.add(w1m).add(w2p.mul(0.8)).add(w2m.mul(0.8)).add(w3p.mul(0.5)).add(w3m.mul(0.5))
+      totalColor.addAssign(rgb.mul(total))
     })
 
     const foilColor = totalColor.mul(uniforms.foilIntensity)
 
-    // Fresnel
     const NdotV = max(dot(n, viewDir), float(0.001))
     const fresnel = float(0.5).add(float(0.5).mul(float(1).sub(NdotV)))
 
@@ -90,11 +93,8 @@ export function createBalancedFoil(options: FoilMaterialOptions = {}): FoilMater
       ? texture(options.baseTexture, uvCoord).rgb
       : vec3(0.45, 0.45, 0.5)
 
-    // Apply foil pattern mask
     const mask = foilPatternMask(uvCoord, uniforms.foilPattern)
-
-    // Additive: card art + saturated rainbow
-    const finalColor = baseColor.mul(float(0.7)).add(foilColor.mul(fresnel).mul(mask)).add(sparkle.mul(0.15).mul(mask))
+    const finalColor = baseColor.mul(float(0.65)).add(foilColor.mul(fresnel).mul(mask)).add(sparkle.mul(0.15).mul(mask))
 
     return vec4(finalColor, float(1))
   })

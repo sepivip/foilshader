@@ -4,10 +4,10 @@ import type { QualityTier } from '../src/HolographicCard'
 import type { FoilPattern } from '../src/core/patterns'
 
 // --- Presets ---
-const PRESETS: Record<string, { gratingPeriod: number; roughness: number }> = {
-  'trading-card': { gratingPeriod: 1800, roughness: 0.15 },
-  'cd-rom': { gratingPeriod: 1600, roughness: 0.05 },
-  'credit-card': { gratingPeriod: 2000, roughness: 0.25 },
+const PRESETS: Record<string, { gratingPeriod: number; roughness: number; intensity: number }> = {
+  'trading-card': { gratingPeriod: 1800, roughness: 0.15, intensity: 1.5 },
+  'cd-rom': { gratingPeriod: 1200, roughness: 0.02, intensity: 2.0 },
+  'credit-card': { gratingPeriod: 2500, roughness: 0.35, intensity: 1.0 },
 }
 
 // --- Theme ---
@@ -107,6 +107,9 @@ async function main() {
     roughnessSlider.value = String(Math.round(preset.roughness * 100))
     roughnessVal.textContent = preset.roughness.toFixed(2)
     card.foilRoughness = preset.roughness
+    intensitySlider.value = String(Math.round(preset.intensity * 100))
+    intensityVal.textContent = preset.intensity.toFixed(2)
+    card.foilIntensity = preset.intensity
   })
 
   gratingSlider.addEventListener('input', () => {
