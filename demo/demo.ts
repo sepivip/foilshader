@@ -67,7 +67,8 @@ async function main() {
     quality: 'balanced',
     width: sizes.width,
     height: sizes.height,
-    autoTilt: true,
+    autoTilt: false,
+    animationSpeed: 0,
     texture: './card.png',
   })
   card.setupInput(canvas)
