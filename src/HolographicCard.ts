@@ -22,6 +22,9 @@ export interface HolographicCardOptions {
   foilIntensity?: number
   foilThickness?: number
   foilPattern?: FoilPattern
+  maskMode?: 'pattern' | 'color'
+  maskColor?: THREE.Vector3
+  maskTolerance?: number
   lightDirection?: THREE.Vector3
 }
 
@@ -123,6 +126,15 @@ export class HolographicCard {
     return (Object.entries(PATTERN_IDS).find(([, v]) => v === id)?.[0] ?? 'full') as FoilPattern
   }
   set foilPattern(v: FoilPattern) { (this._uniforms.foilPattern as any).value = PATTERN_IDS[v] ?? 0 }
+
+  get maskMode(): 'pattern' | 'color' { return (this._uniforms.maskMode.value as number) < 0.5 ? 'pattern' : 'color' }
+  set maskMode(v: 'pattern' | 'color') { (this._uniforms.maskMode as any).value = v === 'color' ? 1 : 0 }
+
+  get maskColor(): THREE.Vector3 { return this._uniforms.maskColor.value as THREE.Vector3 }
+  set maskColor(v: THREE.Vector3) { (this._uniforms.maskColor.value as THREE.Vector3).copy(v) }
+
+  get maskTolerance(): number { return this._uniforms.maskTolerance.value as number }
+  set maskTolerance(v: number) { (this._uniforms.maskTolerance as any).value = v }
 
   get lightDirection(): THREE.Vector3 { return this._uniforms.lightDir.value as THREE.Vector3 }
 

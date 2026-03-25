@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu'
 import {
   Fn, float, vec3, vec4, texture, uv, normalize,
   positionWorld, cameraPosition,
-  dot, sin, cos, clamp, max, cross,
+  dot, sin, cos, clamp, max, cross, select, length,
 } from 'three/tsl'
 import { createFoilUniforms, type FoilUniforms } from '../core/uniforms'
 import { wavelengthToRGB } from '../core/spectrum'
@@ -88,7 +88,12 @@ export function createFastFoil(options: FoilMaterialOptions = {}): FoilMaterialR
       ? texture(options.baseTexture, uvCoord).rgb
       : vec3(0.45, 0.45, 0.5)
 
-    const mask = foilPatternMask(uvCoord, uniforms.foilPattern)
+    // Mask: pattern mode or color-key mode
+    const patternMask = foilPatternMask(uvCoord, uniforms.foilPattern)
+    const colorDist = length(baseColor.sub(vec3(uniforms.maskColor)))
+    const colorMask = clamp(float(1).sub(colorDist.div(max(uniforms.maskTolerance, float(0.01)))), 0, 1)
+    const mask = select(uniforms.maskMode.lessThan(0.5), patternMask, colorMask)
+
     const finalColor = baseColor.mul(float(0.65)).add(foilColor.mul(fresnel).mul(mask)).add(sparkle.mul(0.15).mul(mask))
 
     return vec4(finalColor, float(1))

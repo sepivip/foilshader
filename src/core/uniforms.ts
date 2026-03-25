@@ -17,8 +17,14 @@ export function createFoilUniforms() {
     foilThickness: uniform(500),
     /** Elapsed time in seconds */
     time: uniform(0),
-    /** Foil pattern ID (0=full, 1=cosmos, 2=linear, 3=star, 4=reverse) */
+    /** Foil pattern ID (0=full, 1=cosmos, ..., 14=confetti) */
     foilPattern: uniform(0),
+    /** Mask mode: 0 = pattern, 1 = color key */
+    maskMode: uniform(0),
+    /** Target color for color-key masking */
+    maskColor: uniform(new Vector3(0, 0, 1)),
+    /** Color-key tolerance (0 = exact match, 1 = very loose) */
+    maskTolerance: uniform(0.3),
   }
 }
 

@@ -56,31 +56,64 @@
           </div>
         </div>
 
-        <!-- Foil Style -->
+        <!-- Foil Mask -->
         <div class="control-group">
-          <div class="control-group-title">Foil Style</div>
+          <div class="control-group-title">Foil Mask</div>
           <div class="control-row">
-            <span class="control-label">Pattern</span>
+            <span class="control-label">Mode</span>
             <div class="select-wrap">
-              <select id="foil-pattern">
-                <option value="full" selected>Full Holo</option>
-                <option value="cosmos">Cosmos</option>
-                <option value="linear">Linear</option>
-                <option value="star">Star Sparkle</option>
-                <option value="reverse">Reverse Holo</option>
-                <option value="diamond">Diamond</option>
-                <option value="chevron">Chevron</option>
-                <option value="hexagon">Honeycomb</option>
-                <option value="swirl">Swirl</option>
-                <option value="crosshatch">Crosshatch</option>
-                <option value="scales">Dragon Scales</option>
-                <option value="circuit">Circuit Board</option>
-                <option value="ripple">Ripple</option>
-                <option value="cracked-ice">Cracked Ice</option>
-                <option value="confetti">Confetti</option>
+              <select id="mask-mode">
+                <option value="pattern" selected>Pattern</option>
+                <option value="color">Color Key</option>
               </select>
             </div>
           </div>
+
+          <!-- Pattern options (shown when mode = pattern) -->
+          <div id="pattern-options">
+            <div class="control-row">
+              <span class="control-label">Pattern</span>
+              <div class="select-wrap">
+                <select id="foil-pattern">
+                  <option value="full" selected>Full Holo</option>
+                  <option value="cosmos">Cosmos</option>
+                  <option value="linear">Linear</option>
+                  <option value="star">Star Sparkle</option>
+                  <option value="reverse">Reverse Holo</option>
+                  <option value="diamond">Diamond</option>
+                  <option value="chevron">Chevron</option>
+                  <option value="hexagon">Honeycomb</option>
+                  <option value="swirl">Swirl</option>
+                  <option value="crosshatch">Crosshatch</option>
+                  <option value="scales">Dragon Scales</option>
+                  <option value="circuit">Circuit Board</option>
+                  <option value="ripple">Ripple</option>
+                  <option value="cracked-ice">Cracked Ice</option>
+                  <option value="confetti">Confetti</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Color key options (shown when mode = color) -->
+          <div id="color-options" style="display:none">
+            <div class="control-row">
+              <span class="control-label">Target Color</span>
+              <input type="color" id="mask-color" value="#0066ff" style="width:44px;height:32px;border:none;border-radius:8px;cursor:pointer;background:transparent;">
+            </div>
+            <div class="slider-row">
+              <div class="slider-top">
+                <span class="slider-label">Tolerance</span>
+                <span class="slider-value" id="tolerance-val">0.30</span>
+              </div>
+              <input type="range" id="mask-tolerance" min="5" max="100" value="30" step="1">
+            </div>
+          </div>
+        </div>
+
+        <!-- Foil Style -->
+        <div class="control-group">
+          <div class="control-group-title">Foil Style</div>
           <div class="control-row">
             <span class="control-label">Preset</span>
             <div class="select-wrap">

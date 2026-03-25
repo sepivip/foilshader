@@ -68,13 +68,13 @@ async function main() {
     width: sizes.width,
     height: sizes.height,
     autoTilt: true,
+    texture: './card.png',
   })
   card.setupInput(canvas)
 
   // --- Controls ---
   const $ = (id: string) => document.getElementById(id)!
   const qualitySelect = $('quality') as HTMLSelectElement
-  const foilPatternSelect = $('foil-pattern') as HTMLSelectElement
   const presetSelect = $('preset') as HTMLSelectElement
   const gratingSlider = $('grating') as HTMLInputElement
   const gratingVal = $('grating-val')
@@ -124,9 +124,38 @@ async function main() {
     card.quality = qualitySelect.value as QualityTier
   })
 
-  // Foil pattern
+  // Mask mode + foil pattern + color key
+  const maskModeSelect = $('mask-mode') as HTMLSelectElement
+  const patternOpts = $('pattern-options')
+  const colorOpts = $('color-options')
+  const foilPatternSelect = $('foil-pattern') as HTMLSelectElement
+  const maskColorInput = $('mask-color') as HTMLInputElement
+  const maskToleranceSlider = $('mask-tolerance') as HTMLInputElement
+  const toleranceVal = $('tolerance-val')
+
+  maskModeSelect.addEventListener('change', () => {
+    const isColor = maskModeSelect.value === 'color'
+    card.maskMode = isColor ? 'color' : 'pattern'
+    patternOpts.style.display = isColor ? 'none' : 'block'
+    colorOpts.style.display = isColor ? 'block' : 'none'
+  })
+
   foilPatternSelect.addEventListener('change', () => {
     card.foilPattern = foilPatternSelect.value as FoilPattern
+  })
+
+  maskColorInput.addEventListener('input', () => {
+    const hex = maskColorInput.value
+    const r = parseInt(hex.slice(1, 3), 16) / 255
+    const g = parseInt(hex.slice(3, 5), 16) / 255
+    const b = parseInt(hex.slice(5, 7), 16) / 255
+    card.maskColor = new THREE.Vector3(r, g, b)
+  })
+
+  maskToleranceSlider.addEventListener('input', () => {
+    const v = Number(maskToleranceSlider.value) / 100
+    toleranceVal.textContent = v.toFixed(2)
+    card.maskTolerance = v
   })
 
   // Presets
