@@ -1,0 +1,159 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0a;
+  --panel-bg: #1a1a1a;
+  --text: #e0e0e0;
+  --text-muted: #888;
+  --accent: #6366f1;
+  --border: #333;
+}
+
+[data-theme="light"] {
+  --bg: #f0f0f0;
+  --panel-bg: #ffffff;
+  --text: #1a1a1a;
+  --text-muted: #666;
+  --accent: #4f46e5;
+  --border: #ddd;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#theme-toggle {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  z-index: 10;
+}
+
+#upload-btn {
+  position: fixed;
+  top: 16px;
+  right: 300px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 10;
+}
+
+#upload-btn:hover { opacity: 0.9; }
+
+#controls {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 280px;
+  height: 100%;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--border);
+  padding: 20px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+#controls-toggle {
+  display: none;
+  width: 100%;
+  background: var(--panel-bg);
+  color: var(--text-muted);
+  border: none;
+  padding: 10px;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: center;
+}
+
+#controls-inner label {
+  display: block;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+#controls-inner select,
+#controls-inner input[type="range"] {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+
+#controls-inner select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+#controls-inner input[type="range"] {
+  accent-color: var(--accent);
+}
+
+#controls-inner span {
+  float: right;
+  color: var(--text);
+  font-size: 12px;
+  font-family: monospace;
+}
+
+/* Mobile: controls as collapsible bottom sheet */
+@media (max-width: 768px) {
+  #controls {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: auto;
+    max-height: 50vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    border-radius: 12px 12px 0 0;
+    overflow: hidden;
+    padding: 0 20px 20px;
+  }
+
+  #controls-toggle { display: block; }
+
+  #controls.collapsed #controls-inner {
+    display: none;
+  }
+
+  #upload-btn {
+    right: 16px;
+  }
+}
