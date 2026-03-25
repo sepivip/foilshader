@@ -60,7 +60,7 @@ d × (sin θ_i + sin θ_m) = m × λ
 **`uniforms.ts`** — Shared uniform definitions:
 - `u_tilt: vec2` — x/y rotation in radians from input
 - `u_lightDir: vec3` — light direction (default: top-down `(0, 1, 0.5)`)
-- `u_gratingDensity: float` — 1/d in nm⁻¹ (default: `1/1800`)
+- `u_gratingDensity: float` — 1/d in nm⁻¹ (default: `1/1800`, i.e. grating period d = 1800nm)
 - `u_foilThickness: float` — thin-film thickness in nm (Tier 3 only)
 - `u_foilRoughness: float` — 0–1 roughness factor
 - `u_foilIntensity: float` — multiplier for foil brightness
@@ -189,7 +189,7 @@ interface FoilMaterialOptions {
 ### Controls
 - **Quality**: dropdown — Fast / Balanced / Physical
 - **Presets**: dropdown — "Trading Card" (d=1800nm, roughness=0.15), "CD-ROM" (d=1600nm, roughness=0.05), "Credit Card" (d=2000nm, roughness=0.25)
-- **Grating density**: slider 1000–3000nm
+- **Grating period**: slider 1000–3000nm (controls `d`; uniform `u_gratingDensity` is computed as `1/d`)
 - **Foil roughness**: slider 0–1
 - **Foil intensity**: slider 0–3
 - **Animation speed**: slider 0–2 (0 = manual only)
@@ -211,8 +211,10 @@ Vanilla CSS only — keeps the demo dependency-free and the single-file build si
 - **Three.js** — peer dependency (>=0.160.0)
 
 ### Build Outputs
-- `dist/holographic-foil.es.js` — ESM bundle
+- `dist/holographic-foil.es.js` — ESM bundle (main entry)
 - `dist/holographic-foil.umd.js` — UMD bundle (global name: `HolographicFoil`)
+- `dist/shaders.es.js` — ESM bundle (shader factories subpath)
+- `dist/shaders.umd.js` — UMD bundle (shader factories subpath)
 - `dist/holographic-foil.d.ts` — TypeScript declarations
 - `dist/demo/index.html` — standalone demo
 
