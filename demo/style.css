@@ -54,6 +54,21 @@ body {
   z-index: 10;
 }
 
+#gyro-btn {
+  position: fixed;
+  top: 16px;
+  left: 70px;
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 10;
+}
+
 #upload-btn {
   position: fixed;
   top: 16px;

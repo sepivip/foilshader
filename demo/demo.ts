@@ -138,6 +138,37 @@ async function main() {
     card.animationSpeed = v
   })
 
+  // --- Gyroscope permission (iOS) ---
+  const gyroBtn = document.getElementById('gyro-btn')!
+  const DOE = DeviceOrientationEvent as any
+  if (typeof DOE.requestPermission === 'function') {
+    // iOS — show button
+    gyroBtn.style.display = 'block'
+    gyroBtn.addEventListener('click', async () => {
+      try {
+        const perm = await DOE.requestPermission()
+        if (perm === 'granted') {
+          card.inputMode = 'gyroscope'
+          gyroBtn.textContent = 'Gyro Active'
+          gyroBtn.style.background = '#059669'
+          setTimeout(() => { gyroBtn.style.display = 'none' }, 2000)
+        }
+      } catch (e) {
+        gyroBtn.textContent = 'Gyro Failed'
+        gyroBtn.style.background = '#dc2626'
+      }
+    })
+  } else if ('ontouchstart' in window && typeof DeviceOrientationEvent !== 'undefined') {
+    // Android — try directly, show button as fallback
+    gyroBtn.style.display = 'block'
+    gyroBtn.addEventListener('click', () => {
+      card.inputMode = 'gyroscope'
+      gyroBtn.textContent = 'Gyro Active'
+      gyroBtn.style.background = '#059669'
+      setTimeout(() => { gyroBtn.style.display = 'none' }, 2000)
+    })
+  }
+
   // --- Upload ---
   const uploadBtn = document.getElementById('upload-btn')!
   const fileInput = document.getElementById('file-input') as HTMLInputElement
