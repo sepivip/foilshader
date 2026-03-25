@@ -12,20 +12,30 @@ import { foilPatternMask, foilPatternDepth } from '../core/patterns'
 import type { FoilMaterialOptions, FoilMaterialResult } from './createFastFoil'
 
 const NUM_WAVELENGTHS = 12
-
-const hash22 = Fn(([p_immutable]: [any]) => {
-  const p = vec2(p_immutable)
-  const d1 = dot(p, vec2(127.1, 311.7))
-  const d2 = dot(p, vec2(269.5, 183.3))
-  return vec2(
-    fract(sin(d1).mul(43758.5453)),
-    fract(sin(d2).mul(43758.5453)),
-  )
-})
+const NUM_SLITS = 12 // More slits = sharper diffraction peaks
 
 /**
- * Tier 3: Full spectral — 12 wavelengths, 3 grating directions,
- * 5 orders each, wave interference + thin-film + roughness noise.
+ * Tier 3 — Physical: Full multi-slit diffraction + thin-film interference.
+ *
+ * Physics model per fragment:
+ * 1. Real grating equation: d*(sinα + sinβ) = mλ
+ * 2. Multi-slit interference: I = sin²(N*φ/2) / (N² * sin²(φ/2))
+ *    where φ = 2π*d*(sinα+sinβ)/λ  is the phase difference between adjacent slits.
+ *    This formula produces:
+ *    - Sharp bright peaks at diffraction orders (m = ..., -2, -1, 0, +1, +2, ...)
+ *    - Dark destructive interference gaps between orders
+ *    - N-2 secondary maxima between each pair of primary peaks
+ *    Exactly matching real diffraction grating physics.
+ *
+ * 3. Thin-film interference: Additional phase from foil coating thickness
+ *    φ_film = 4π * n_film * t * cos(θ) / λ
+ *    Modulates intensity per wavelength → iridescent color shifts
+ *
+ * 4. Per-pixel roughness: Random phase noise from foil micro-imperfections
+ *    Broadens peaks slightly, adds sparkle at grazing angles
+ *
+ * 5. 3 grating directions with different periods → complex cross-hatch pattern
+ * 6. 12 wavelengths sampled across visible spectrum → smooth color reproduction
  */
 export function createPhysicalFoil(options: FoilMaterialOptions = {}): FoilMaterialResult {
   const uniforms = createFoilUniforms()
@@ -38,38 +48,46 @@ export function createPhysicalFoil(options: FoilMaterialOptions = {}): FoilMater
 
   const foilShader = Fn(() => {
     const uvCoord = uv()
+    const N = float(NUM_SLITS)
 
     const tiltX = uniforms.tilt.x
     const tiltY = uniforms.tilt.y
     const n = normalize(vec3(sin(tiltX), sin(tiltY), float(1)))
 
-    const lightDir = normalize(vec3(uniforms.lightDir))
-    const viewDir = normalize(cameraPosition.sub(positionWorld))
-    const H = normalize(viewDir.add(lightDir))
+    const L = normalize(vec3(uniforms.lightDir))
+    const V = normalize(cameraPosition.sub(positionWorld))
 
-    const tangent = normalize(cross(n, vec3(0, 1, 0)))
-    const bitangent = normalize(cross(n, tangent))
-    const diagonal = normalize(tangent.mul(0.707).add(bitangent.mul(0.707)))
+    // 3 grating tangent directions
+    const t1 = normalize(cross(n, vec3(0, 1, 0)))
+    const t2 = normalize(cross(n, t1))
+    const t3 = normalize(t1.mul(0.707).add(t2.mul(0.707)))
 
-    const d = float(1).div(uniforms.gratingDensity)
-    const d2 = d.mul(1.3)
-    const d3 = d.mul(0.85)
+    const d1 = float(1).div(uniforms.gratingDensity)
+    const d2 = d1.mul(1.3)
+    const d3 = d1.mul(0.85)
 
-    const sx = uvCoord.x.sub(0.5)
-    const sy = uvCoord.y.sub(0.5)
-
-    // Pattern depth perturbation for embossed material feel
+    // Pattern depth
     const depth = foilPatternDepth(uvCoord, uniforms.foilPattern)
 
-    const diff1 = dot(H, tangent).add(sx.mul(0.6)).add(sy.mul(0.2)).add(depth.x)
-    const diff2 = dot(H, bitangent).add(sy.mul(0.5)).add(sx.mul(0.15)).add(depth.y)
-    const diff3 = dot(H, diagonal).add(sx.add(sy).mul(0.35)).add(depth.x.add(depth.y).mul(0.5))
+    const sx = uvCoord.x.sub(0.5).mul(0.5)
+    const sy = uvCoord.y.sub(0.5).mul(0.3)
 
-    // Per-pixel roughness noise
-    const pixelNoise = hash22(uvCoord.mul(500))
-    const phaseNoise = pixelNoise.x.mul(uniforms.foilRoughness).mul(PI.mul(2))
+    // sin(α) + sin(β) per grating direction
+    const sinSum1 = dot(L, t1).add(dot(V, t1)).add(sx).add(depth.x)
+    const sinSum2 = dot(L, t2).add(dot(V, t2)).add(sy).add(depth.y)
+    const sinSum3 = dot(L, t3).add(dot(V, t3)).add(sx.add(sy).mul(0.6)).add(depth.x.add(depth.y).mul(0.5))
 
-    const thinFilmBase = uniforms.foilThickness.mul(float(1.5)).mul(2)
+    // Per-pixel roughness noise (2 independent channels)
+    const noiseUV = uvCoord.mul(500)
+    const nCell = vec2(noiseUV.x.floor(), noiseUV.y.floor())
+    const n1 = fract(sin(dot(nCell, vec2(127.1, 311.7))).mul(43758.5453))
+    const n2 = fract(sin(dot(nCell, vec2(269.5, 183.3))).mul(43758.5453))
+    const phaseNoise = n1.mul(uniforms.foilRoughness).mul(PI.mul(2))
+
+    // Thin-film parameters
+    const filmThickness = uniforms.foilThickness // nm
+    const nFilm = float(1.5) // refractive index of foil coating
+    const cosIncidence = max(dot(n, L), float(0.1))
 
     const totalColor = vec3(0, 0, 0).toVar()
 
@@ -78,71 +96,55 @@ export function createPhysicalFoil(options: FoilMaterialOptions = {}): FoilMater
       const lambda = mix(float(380), float(780), t)
       const rgb = wavelengthToRGB(lambda)
 
-      const ampReal = float(0).toVar()
-      const ampImag = float(0).toVar()
+      // ── Thin-film interference ──
+      // Phase from thin coating: φ_film = 4π * n * t * cos(θ) / λ
+      const thinFilmPhase = PI.mul(4).mul(nFilm).mul(filmThickness).mul(cosIncidence).div(lambda)
+      // Thin-film reflectance modulation (between 0.5 and 1.0)
+      const thinFilmFactor = cos(thinFilmPhase).mul(0.25).add(0.75)
 
-      const thinFilmPhase = thinFilmBase.div(lambda).mul(PI.mul(2))
+      // ── Grating 1: Multi-slit diffraction ──
+      const phi1 = PI.mul(2).mul(d1).mul(sinSum1).div(lambda).add(phaseNoise)
+      const hp1 = phi1.mul(0.5)
+      const sinNhp1 = sin(N.mul(hp1))
+      const sinhp1 = sin(hp1)
+      const i1 = select(
+        abs(sinhp1).lessThan(0.0001),
+        float(1),
+        sinNhp1.mul(sinNhp1).div(sinhp1.mul(sinhp1)).div(N.mul(N))
+      )
 
-      // --- Grating 1: horizontal, orders -2..+2 ---
-      const t1_m2 = float(-2).mul(lambda).div(d)
-      const e1_m2 = max(float(1).sub(abs(diff1.sub(t1_m2)).mul(10)), float(0)).mul(0.3)
-      const p1_m2 = t1_m2.mul(d).div(lambda).mul(PI.mul(2)).add(phaseNoise).add(thinFilmPhase)
-      ampReal.addAssign(cos(p1_m2).mul(e1_m2))
-      ampImag.addAssign(sin(p1_m2).mul(e1_m2))
+      // ── Grating 2 ──
+      const phi2 = PI.mul(2).mul(d2).mul(sinSum2).div(lambda).add(phaseNoise.mul(1.2))
+      const hp2 = phi2.mul(0.5)
+      const sinNhp2 = sin(N.mul(hp2))
+      const sinhp2 = sin(hp2)
+      const i2 = select(
+        abs(sinhp2).lessThan(0.0001),
+        float(1),
+        sinNhp2.mul(sinNhp2).div(sinhp2.mul(sinhp2)).div(N.mul(N))
+      ).mul(0.7)
 
-      const t1_m1 = float(-1).mul(lambda).div(d)
-      const e1_m1 = max(float(1).sub(abs(diff1.sub(t1_m1)).mul(10)), float(0))
-      const p1_m1 = t1_m1.mul(d).div(lambda).mul(PI.mul(2)).add(phaseNoise).add(thinFilmPhase)
-      ampReal.addAssign(cos(p1_m1).mul(e1_m1))
-      ampImag.addAssign(sin(p1_m1).mul(e1_m1))
+      // ── Grating 3 ──
+      const phi3 = PI.mul(2).mul(d3).mul(sinSum3).div(lambda).add(phaseNoise.mul(0.8))
+      const hp3 = phi3.mul(0.5)
+      const sinNhp3 = sin(N.mul(hp3))
+      const sinhp3 = sin(hp3)
+      const i3 = select(
+        abs(sinhp3).lessThan(0.0001),
+        float(1),
+        sinNhp3.mul(sinNhp3).div(sinhp3.mul(sinhp3)).div(N.mul(N))
+      ).mul(0.4)
 
-      const t1_p1 = float(1).mul(lambda).div(d)
-      const e1_p1 = max(float(1).sub(abs(diff1.sub(t1_p1)).mul(10)), float(0))
-      const p1_p1 = t1_p1.mul(d).div(lambda).mul(PI.mul(2)).add(phaseNoise).add(thinFilmPhase)
-      ampReal.addAssign(cos(p1_p1).mul(e1_p1))
-      ampImag.addAssign(sin(p1_p1).mul(e1_p1))
+      // Combined intensity: grating diffraction × thin-film modulation
+      const intensity = i1.add(i2).add(i3).mul(thinFilmFactor)
 
-      const t1_p2 = float(2).mul(lambda).div(d)
-      const e1_p2 = max(float(1).sub(abs(diff1.sub(t1_p2)).mul(10)), float(0)).mul(0.3)
-      const p1_p2 = t1_p2.mul(d).div(lambda).mul(PI.mul(2)).add(phaseNoise).add(thinFilmPhase)
-      ampReal.addAssign(cos(p1_p2).mul(e1_p2))
-      ampImag.addAssign(sin(p1_p2).mul(e1_p2))
-
-      // --- Grating 2: vertical, orders -1..+1 ---
-      const t2_m1 = float(-1).mul(lambda).div(d2)
-      const e2_m1 = max(float(1).sub(abs(diff2.sub(t2_m1)).mul(10)), float(0)).mul(0.8)
-      const p2_m1 = t2_m1.mul(d2).div(lambda).mul(PI.mul(2)).add(phaseNoise.mul(1.2))
-      ampReal.addAssign(cos(p2_m1).mul(e2_m1))
-      ampImag.addAssign(sin(p2_m1).mul(e2_m1))
-
-      const t2_p1 = float(1).mul(lambda).div(d2)
-      const e2_p1 = max(float(1).sub(abs(diff2.sub(t2_p1)).mul(10)), float(0)).mul(0.8)
-      const p2_p1 = t2_p1.mul(d2).div(lambda).mul(PI.mul(2)).add(phaseNoise.mul(1.2))
-      ampReal.addAssign(cos(p2_p1).mul(e2_p1))
-      ampImag.addAssign(sin(p2_p1).mul(e2_p1))
-
-      // --- Grating 3: diagonal, orders -1..+1 ---
-      const t3_m1 = float(-1).mul(lambda).div(d3)
-      const e3_m1 = max(float(1).sub(abs(diff3.sub(t3_m1)).mul(10)), float(0)).mul(0.5)
-      const p3_m1 = t3_m1.mul(d3).div(lambda).mul(PI.mul(2)).add(phaseNoise.mul(0.8))
-      ampReal.addAssign(cos(p3_m1).mul(e3_m1))
-      ampImag.addAssign(sin(p3_m1).mul(e3_m1))
-
-      const t3_p1 = float(1).mul(lambda).div(d3)
-      const e3_p1 = max(float(1).sub(abs(diff3.sub(t3_p1)).mul(10)), float(0)).mul(0.5)
-      const p3_p1 = t3_p1.mul(d3).div(lambda).mul(PI.mul(2)).add(phaseNoise.mul(0.8))
-      ampReal.addAssign(cos(p3_p1).mul(e3_p1))
-      ampImag.addAssign(sin(p3_p1).mul(e3_p1))
-
-      const intensity = ampReal.mul(ampReal).add(ampImag.mul(ampImag))
       totalColor.addAssign(rgb.mul(intensity))
     })
 
-    const foilColor = totalColor.mul(uniforms.foilIntensity)
+    const foilColor = totalColor.div(float(NUM_WAVELENGTHS)).mul(uniforms.foilIntensity)
 
-    const NdotV = max(dot(n, viewDir), float(0.001))
+    const NdotV = max(dot(n, V), float(0.001))
     const fresnel = float(0.5).add(float(0.5).mul(float(1).sub(NdotV)))
-
     const sparkle = sparkleNoise(uvCoord, NdotV, uniforms.time, uniforms.foilRoughness)
 
     const baseColor = options.baseTexture

@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu'
 import {
   Fn, float, vec3, vec4, texture, uv, normalize,
   positionWorld, cameraPosition,
-  dot, sin, cos, clamp, max, cross, select, length,
+  dot, sin, cos, clamp, max, cross, select, length, PI,
 } from 'three/tsl'
 import { createFoilUniforms, type FoilUniforms } from '../core/uniforms'
 import { wavelengthToRGB } from '../core/spectrum'
@@ -24,7 +24,12 @@ export interface FoilMaterialResult {
 }
 
 /**
- * Tier 1: Fast — 3 grating directions, no wavelength loop.
+ * Tier 1 — Fast analytical approximation.
+ *
+ * Uses the real grating equation d*(sinα + sinβ) = mλ to compute
+ * which wavelength diffracts toward the viewer at each pixel.
+ * No wavelength loop — single color per pixel per grating direction.
+ * 3 grating orientations for complex multi-color patterns.
  */
 export function createFastFoil(options: FoilMaterialOptions = {}): FoilMaterialResult {
   const uniforms = createFoilUniforms()
@@ -38,57 +43,70 @@ export function createFastFoil(options: FoilMaterialOptions = {}): FoilMaterialR
   const foilShader = Fn(() => {
     const uvCoord = uv()
 
+    // Tilted surface normal (card tilt from mouse/touch/gyroscope)
     const tiltX = uniforms.tilt.x
     const tiltY = uniforms.tilt.y
     const n = normalize(vec3(sin(tiltX), sin(tiltY), float(1)))
 
-    const lightDir = normalize(vec3(uniforms.lightDir))
-    const viewDir = normalize(cameraPosition.sub(positionWorld))
-    const H = normalize(viewDir.add(lightDir))
+    // Light and view directions (from surface point)
+    const L = normalize(vec3(uniforms.lightDir))
+    const V = normalize(cameraPosition.sub(positionWorld))
 
-    // 3 grating directions: horizontal, vertical, diagonal
-    const tangent = normalize(cross(n, vec3(0, 1, 0)))
-    const bitangent = normalize(cross(n, tangent))
-    const diagonal = normalize(tangent.add(bitangent))
+    // 3 grating tangent directions (perpendicular to groove lines)
+    const t1 = normalize(cross(n, vec3(0, 1, 0)))        // horizontal grooves
+    const t2 = normalize(cross(n, t1))                     // vertical grooves
+    const t3 = normalize(t1.mul(0.707).add(t2.mul(0.707))) // diagonal grooves
 
-    const d = float(1).div(uniforms.gratingDensity)
+    const d1 = float(1).div(uniforms.gratingDensity)
+    const d2 = d1.mul(1.3)
+    const d3 = d1.mul(0.85)
 
-    // Pattern depth perturbation
+    // Pattern depth perturbation for embossed feel
     const depth = foilPatternDepth(uvCoord, uniforms.foilPattern)
 
-    const sx = uvCoord.x.sub(0.5)
-    const sy = uvCoord.y.sub(0.5)
+    // Spatial variation: different card positions = slightly different angles
+    const sx = uvCoord.x.sub(0.5).mul(0.5)
+    const sy = uvCoord.y.sub(0.5).mul(0.3)
 
-    // Grating 1 + depth perturbation
-    const diff1 = dot(H, tangent).add(sx.mul(0.6)).add(sy.mul(0.2)).add(depth.x)
-    const lambda1 = d.mul(diff1)
-    const c1 = wavelengthToRGB(clamp(lambda1, float(380), float(780)))
-    const vis1 = clamp(float(1).sub(max(float(380).sub(lambda1), float(0)).add(max(lambda1.sub(float(780)), float(0))).mul(0.015)), 0, 1)
+    // For each grating: compute sinα + sinβ (the grating equation parameter)
+    // sinα = projection of light onto tangent, sinβ = projection of view onto tangent
+    // Grating equation: d*(sinα + sinβ) = m*λ → λ = d*(sinα + sinβ)/m
+    // For m=1, the visible wavelength at this pixel is: λ = d*(sinα + sinβ)
 
-    // Grating 2 + depth
-    const diff2 = dot(H, bitangent).add(sy.mul(0.5)).add(sx.mul(0.15)).add(depth.y)
-    const lambda2 = d.mul(1.3).mul(diff2)
-    const c2 = wavelengthToRGB(clamp(lambda2, float(380), float(780)))
-    const vis2 = clamp(float(1).sub(max(float(380).sub(lambda2), float(0)).add(max(lambda2.sub(float(780)), float(0))).mul(0.015)), 0, 1)
+    // Grating 1
+    const sinSum1 = dot(L, t1).add(dot(V, t1)).add(sx).add(depth.x)
+    const lam1 = d1.mul(sinSum1)
+    const vis1 = clamp(float(1).sub(max(float(380).sub(lam1), float(0)).add(max(lam1.sub(float(780)), float(0))).mul(0.02)), 0, 1)
+    const c1 = wavelengthToRGB(clamp(lam1, float(380), float(780))).mul(vis1)
 
-    // Grating 3 + depth
-    const diff3 = dot(H, diagonal).add(sx.add(sy).mul(0.4)).add(depth.x.add(depth.y).mul(0.5))
-    const lambda3 = d.mul(0.9).mul(diff3)
-    const c3 = wavelengthToRGB(clamp(lambda3, float(380), float(780)))
-    const vis3 = clamp(float(1).sub(max(float(380).sub(lambda3), float(0)).add(max(lambda3.sub(float(780)), float(0))).mul(0.015)), 0, 1)
+    // m=-1 for reflected order
+    const lam1n = d1.mul(sinSum1.negate())
+    const vis1n = clamp(float(1).sub(max(float(380).sub(lam1n), float(0)).add(max(lam1n.sub(float(780)), float(0))).mul(0.02)), 0, 1)
+    const c1n = wavelengthToRGB(clamp(lam1n, float(380), float(780))).mul(vis1n)
 
-    const foilColor = c1.mul(vis1).add(c2.mul(vis2).mul(0.7)).add(c3.mul(vis3).mul(0.5)).mul(uniforms.foilIntensity)
+    // Grating 2
+    const sinSum2 = dot(L, t2).add(dot(V, t2)).add(sy).add(depth.y)
+    const lam2 = d2.mul(sinSum2)
+    const vis2 = clamp(float(1).sub(max(float(380).sub(lam2), float(0)).add(max(lam2.sub(float(780)), float(0))).mul(0.02)), 0, 1)
+    const c2 = wavelengthToRGB(clamp(lam2, float(380), float(780))).mul(vis2)
 
-    const NdotV = max(dot(n, viewDir), float(0.001))
+    // Grating 3
+    const sinSum3 = dot(L, t3).add(dot(V, t3)).add(sx.add(sy).mul(0.7)).add(depth.x.add(depth.y).mul(0.5))
+    const lam3 = d3.mul(sinSum3)
+    const vis3 = clamp(float(1).sub(max(float(380).sub(lam3), float(0)).add(max(lam3.sub(float(780)), float(0))).mul(0.02)), 0, 1)
+    const c3 = wavelengthToRGB(clamp(lam3, float(380), float(780))).mul(vis3)
+
+    const foilColor = c1.add(c1n).add(c2.mul(0.7)).add(c3.mul(0.5)).mul(uniforms.foilIntensity)
+
+    const NdotV = max(dot(n, V), float(0.001))
     const fresnel = float(0.5).add(float(0.5).mul(float(1).sub(NdotV)))
-
     const sparkle = sparkleNoise(uvCoord, NdotV, uniforms.time, uniforms.foilRoughness)
 
     const baseColor = options.baseTexture
       ? texture(options.baseTexture, uvCoord).rgb
       : vec3(0.45, 0.45, 0.5)
 
-    // Mask: pattern mode or color-key mode
+    // Mask: pattern or color-key
     const patternMask = foilPatternMask(uvCoord, uniforms.foilPattern)
     const colorDist = length(baseColor.sub(vec3(uniforms.maskColor)))
     const colorMask = clamp(float(1).sub(colorDist.div(max(uniforms.maskTolerance, float(0.01)))), 0, 1)
