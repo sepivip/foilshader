@@ -8,7 +8,7 @@ import {
 import { createFoilUniforms, type FoilUniforms } from '../core/uniforms'
 import { wavelengthToRGB } from '../core/spectrum'
 import { sparkleNoise } from '../core/sparkle'
-import { foilPatternMask } from '../core/patterns'
+import { foilPatternMask, foilPatternDepth } from '../core/patterns'
 import type { FoilMaterialOptions, FoilMaterialResult } from './createFastFoil'
 
 const NUM_WAVELENGTHS = 8
@@ -48,10 +48,13 @@ export function createBalancedFoil(options: FoilMaterialOptions = {}): FoilMater
     const sx = uvCoord.x.sub(0.5)
     const sy = uvCoord.y.sub(0.5)
 
-    // Diffraction coords for 3 grating orientations
-    const diff1 = dot(H, tangent).add(sx.mul(0.6)).add(sy.mul(0.2))
-    const diff2 = dot(H, bitangent).add(sy.mul(0.5)).add(sx.mul(0.15))
-    const diff3 = dot(H, diagonal).add(sx.add(sy).mul(0.35))
+    // Pattern depth — perturbs diffraction for embossed material feel
+    const depth = foilPatternDepth(uvCoord, uniforms.foilPattern)
+
+    // Diffraction coords for 3 grating orientations + depth perturbation
+    const diff1 = dot(H, tangent).add(sx.mul(0.6)).add(sy.mul(0.2)).add(depth.x)
+    const diff2 = dot(H, bitangent).add(sy.mul(0.5)).add(sx.mul(0.15)).add(depth.y)
+    const diff3 = dot(H, diagonal).add(sx.add(sy).mul(0.35)).add(depth.x.add(depth.y).mul(0.5))
 
     const totalColor = vec3(0, 0, 0).toVar()
 

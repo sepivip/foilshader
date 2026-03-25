@@ -6,7 +6,7 @@ export { createFoilUniforms } from './core/uniforms'
 export { wavelengthToRGB } from './core/spectrum'
 export { diffractionSinAngle } from './core/grating'
 export { sparkleNoise } from './core/sparkle'
-export { foilPatternMask, PATTERN_IDS } from './core/patterns'
+export { foilPatternMask, foilPatternDepth, PATTERN_IDS } from './core/patterns'
 
 export type { HolographicCardOptions, QualityTier, InputMode } from './HolographicCard'
 export type { FoilMaterialOptions, FoilMaterialResult } from './shaders/createFastFoil'

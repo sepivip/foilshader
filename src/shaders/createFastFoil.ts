@@ -7,7 +7,7 @@ import {
 import { createFoilUniforms, type FoilUniforms } from '../core/uniforms'
 import { wavelengthToRGB } from '../core/spectrum'
 import { sparkleNoise } from '../core/sparkle'
-import { foilPatternMask } from '../core/patterns'
+import { foilPatternMask, foilPatternDepth } from '../core/patterns'
 
 export interface FoilMaterialOptions {
   baseTexture?: THREE.Texture
@@ -53,24 +53,26 @@ export function createFastFoil(options: FoilMaterialOptions = {}): FoilMaterialR
 
     const d = float(1).div(uniforms.gratingDensity)
 
-    // Spatial position contributes to which color is visible
+    // Pattern depth perturbation
+    const depth = foilPatternDepth(uvCoord, uniforms.foilPattern)
+
     const sx = uvCoord.x.sub(0.5)
     const sy = uvCoord.y.sub(0.5)
 
-    // Grating 1: horizontal lines (tangent direction)
-    const diff1 = dot(H, tangent).add(sx.mul(0.6)).add(sy.mul(0.2))
+    // Grating 1 + depth perturbation
+    const diff1 = dot(H, tangent).add(sx.mul(0.6)).add(sy.mul(0.2)).add(depth.x)
     const lambda1 = d.mul(diff1)
     const c1 = wavelengthToRGB(clamp(lambda1, float(380), float(780)))
     const vis1 = clamp(float(1).sub(max(float(380).sub(lambda1), float(0)).add(max(lambda1.sub(float(780)), float(0))).mul(0.015)), 0, 1)
 
-    // Grating 2: vertical lines (bitangent direction)
-    const diff2 = dot(H, bitangent).add(sy.mul(0.5)).add(sx.mul(0.15))
+    // Grating 2 + depth
+    const diff2 = dot(H, bitangent).add(sy.mul(0.5)).add(sx.mul(0.15)).add(depth.y)
     const lambda2 = d.mul(1.3).mul(diff2)
     const c2 = wavelengthToRGB(clamp(lambda2, float(380), float(780)))
     const vis2 = clamp(float(1).sub(max(float(380).sub(lambda2), float(0)).add(max(lambda2.sub(float(780)), float(0))).mul(0.015)), 0, 1)
 
-    // Grating 3: diagonal
-    const diff3 = dot(H, diagonal).add(sx.add(sy).mul(0.4))
+    // Grating 3 + depth
+    const diff3 = dot(H, diagonal).add(sx.add(sy).mul(0.4)).add(depth.x.add(depth.y).mul(0.5))
     const lambda3 = d.mul(0.9).mul(diff3)
     const c3 = wavelengthToRGB(clamp(lambda3, float(380), float(780)))
     const vis3 = clamp(float(1).sub(max(float(380).sub(lambda3), float(0)).add(max(lambda3.sub(float(780)), float(0))).mul(0.015)), 0, 1)
