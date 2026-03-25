@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu'
 import { HolographicCard } from '../src/HolographicCard'
 import type { QualityTier } from '../src/HolographicCard'
+import type { FoilPattern } from '../src/core/patterns'
 
 // --- Presets ---
 const PRESETS: Record<string, { gratingPeriod: number; roughness: number }> = {
@@ -10,6 +11,8 @@ const PRESETS: Record<string, { gratingPeriod: number; roughness: number }> = {
 }
 
 // --- Theme ---
+let currentRenderer: THREE.WebGPURenderer | null = null
+
 function initTheme() {
   const saved = localStorage.getItem('holo-theme')
   const btn = document.getElementById('theme-toggle')!
@@ -23,10 +26,12 @@ function initTheme() {
       document.documentElement.removeAttribute('data-theme')
       localStorage.setItem('holo-theme', 'dark')
       btn.innerHTML = '&#9788;'
+      currentRenderer?.setClearColor(0x0a0a0a)
     } else {
       document.documentElement.setAttribute('data-theme', 'light')
       localStorage.setItem('holo-theme', 'light')
       btn.innerHTML = '&#9790;'
+      currentRenderer?.setClearColor(0xf0f0f0)
     }
   })
 }
@@ -37,9 +42,11 @@ async function main() {
 
   const canvas = document.getElementById('canvas') as HTMLCanvasElement
   const renderer = new THREE.WebGPURenderer({ canvas, antialias: true })
+  currentRenderer = renderer
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.setSize(window.innerWidth, window.innerHeight)
-  renderer.setClearColor(0x0a0a0a)
+  const isLight = localStorage.getItem('holo-theme') === 'light'
+  renderer.setClearColor(isLight ? 0xf0f0f0 : 0x0a0a0a)
 
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(
@@ -79,6 +86,12 @@ async function main() {
     controlsToggle.innerHTML = controlsPanel.classList.contains('collapsed')
       ? '&#9660; Controls'
       : '&#9650; Controls'
+  })
+
+  // Foil pattern
+  const foilPatternSelect = document.getElementById('foil-pattern') as HTMLSelectElement
+  foilPatternSelect.addEventListener('change', () => {
+    card.foilPattern = foilPatternSelect.value as FoilPattern
   })
 
   qualitySelect.addEventListener('change', () => {
@@ -153,9 +166,11 @@ async function main() {
   })
 
   // --- Render loop ---
-  const clock = new THREE.Clock()
+  let lastTime = performance.now()
   renderer.setAnimationLoop(() => {
-    const dt = clock.getDelta()
+    const now = performance.now()
+    const dt = (now - lastTime) / 1000
+    lastTime = now
     card.update(dt)
     renderer.render(scene, camera)
   })

@@ -1,12 +1,13 @@
 import * as THREE from 'three/webgpu'
 import {
   Fn, float, vec3, vec4, texture, uv, normalize,
-  positionWorld, normalWorld, cameraPosition,
-  dot, sin, acos, clamp, max, abs,
+  positionWorld, cameraPosition,
+  dot, sin, clamp, max, cross,
 } from 'three/tsl'
 import { createFoilUniforms, type FoilUniforms } from '../core/uniforms'
 import { wavelengthToRGB } from '../core/spectrum'
 import { sparkleNoise } from '../core/sparkle'
+import { foilPatternMask } from '../core/patterns'
 
 export interface FoilMaterialOptions {
   baseTexture?: THREE.Texture
@@ -23,9 +24,9 @@ export interface FoilMaterialResult {
 }
 
 /**
- * Tier 1: Fast analytical approximation.
- * Solves grating equation for m=1 only, maps result directly to hue.
- * No wavelength loop. ~20 TSL node operations. Best for mobile / many cards.
+ * Tier 1: Fast — one wavelength per pixel, no loop.
+ * Each pixel computes THE wavelength that diffracts toward the viewer.
+ * Result: a single saturated spectral color that shifts with tilt.
  */
 export function createFastFoil(options: FoilMaterialOptions = {}): FoilMaterialResult {
   const uniforms = createFoilUniforms()
@@ -39,52 +40,49 @@ export function createFastFoil(options: FoilMaterialOptions = {}): FoilMaterialR
   const foilShader = Fn(() => {
     const uvCoord = uv()
 
-    // Tilted normal: rotate base (0,0,1) by tilt angles
     const tiltX = uniforms.tilt.x
     const tiltY = uniforms.tilt.y
     const n = normalize(vec3(sin(tiltX), sin(tiltY), float(1)))
+
     const lightDir = normalize(vec3(uniforms.lightDir))
     const viewDir = normalize(cameraPosition.sub(positionWorld))
+    const H = normalize(viewDir.add(lightDir))
+    const tangent = normalize(cross(n, vec3(0, 1, 0)))
 
-    // Incidence angle between light and tilted surface
-    const incidence = acos(clamp(dot(n, lightDir), float(-1), float(1)))
+    // Diffraction coordinate = half-vector projection + spatial position
+    // This determines WHICH wavelength is visible at this pixel
+    const diffCoord = dot(H, tangent).add(uvCoord.x.sub(0.5).mul(0.7)).add(uvCoord.y.sub(0.5).mul(0.3))
 
-    // Grating period d = 1 / gratingDensity (in nm)
     const d = float(1).div(uniforms.gratingDensity)
 
-    // View angle relative to surface
-    const viewAngle = acos(clamp(dot(n, viewDir), float(-1), float(1)))
-    const sinView = sin(viewAngle)
+    // m=+1: one wavelength per pixel — gives saturated rainbow
+    const lambda1 = d.mul(diffCoord)
+    const inVis1 = clamp(float(1).sub(max(float(380).sub(lambda1), float(0)).add(max(lambda1.sub(float(780)), float(0))).mul(0.02)), 0, 1)
+    const color1 = wavelengthToRGB(clamp(lambda1, float(380), float(780))).mul(inVis1)
 
-    // For m=1: λ = d * (sin(θ_i) + sin(θ_view))
-    // This gives us the wavelength that diffracts toward the viewer
-    const lambda = d.mul(sin(incidence).add(sinView))
+    // m=-1: second rainbow band (reflected order)
+    const lambda2 = d.mul(diffCoord.negate())
+    const inVis2 = clamp(float(1).sub(max(float(380).sub(lambda2), float(0)).add(max(lambda2.sub(float(780)), float(0))).mul(0.02)), 0, 1)
+    const color2 = wavelengthToRGB(clamp(lambda2, float(380), float(780))).mul(inVis2)
 
-    // Clamp to visible range and get color
-    const lambdaClamped = clamp(lambda, float(380), float(780))
-    const inRange = clamp(
-      float(1).sub(abs(lambda.sub(float(580))).sub(float(200)).mul(0.01)),
-      0, 1
-    )
-    const rainbowColor = wavelengthToRGB(lambdaClamped).mul(inRange)
+    const foilColor = color1.add(color2).mul(uniforms.foilIntensity)
 
-    // Intensity: cosine falloff from viewing angle
-    const NdotV = max(dot(n, viewDir), float(0))
-    const NdotL = max(dot(n, lightDir), float(0))
-    const intensity = NdotV.mul(NdotL)
-
-    const foilColor = rainbowColor.mul(intensity).mul(uniforms.foilIntensity)
+    // Fresnel
+    const NdotV = max(dot(n, viewDir), float(0.001))
+    const fresnel = float(0.5).add(float(0.5).mul(float(1).sub(NdotV)))
 
     // Sparkle
     const sparkle = sparkleNoise(uvCoord, NdotV, uniforms.time, uniforms.foilRoughness)
 
-    // Base texture or placeholder
     const baseColor = options.baseTexture
       ? texture(options.baseTexture, uvCoord).rgb
-      : vec3(0.15, 0.15, 0.2)
+      : vec3(0.45, 0.45, 0.5)
 
-    const ambient = float(0.65)
-    const finalColor = baseColor.mul(ambient.add(foilColor).add(sparkle.mul(0.3)))
+    // Apply foil pattern mask
+    const mask = foilPatternMask(uvCoord, uniforms.foilPattern)
+
+    // Additive blend: card art + rainbow overlay
+    const finalColor = baseColor.mul(float(0.7)).add(foilColor.mul(fresnel).mul(mask)).add(sparkle.mul(0.15).mul(mask))
 
     return vec4(finalColor, float(1))
   })

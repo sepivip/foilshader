@@ -17,6 +17,8 @@ export function createFoilUniforms() {
     foilThickness: uniform(500),
     /** Elapsed time in seconds */
     time: uniform(0),
+    /** Foil pattern ID (0=full, 1=cosmos, 2=linear, 3=star, 4=reverse) */
+    foilPattern: uniform(0),
   }
 }
 

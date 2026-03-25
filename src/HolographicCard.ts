@@ -4,6 +4,7 @@ import { createBalancedFoil } from './shaders/createBalancedFoil'
 import { createPhysicalFoil } from './shaders/createPhysicalFoil'
 import type { FoilMaterialOptions, FoilMaterialResult } from './shaders/createFastFoil'
 import type { FoilUniforms } from './core/uniforms'
+import { PATTERN_IDS, type FoilPattern } from './core/patterns'
 
 export type QualityTier = 'fast' | 'balanced' | 'physical'
 export type InputMode = 'auto' | 'mouse' | 'touch' | 'gyroscope' | 'none'
@@ -20,6 +21,7 @@ export interface HolographicCardOptions {
   foilRoughness?: number
   foilIntensity?: number
   foilThickness?: number
+  foilPattern?: FoilPattern
   lightDirection?: THREE.Vector3
 }
 
@@ -115,6 +117,12 @@ export class HolographicCard {
 
   get foilThickness(): number { return this._uniforms.foilThickness.value as number }
   set foilThickness(v: number) { (this._uniforms.foilThickness as any).value = v }
+
+  get foilPattern(): FoilPattern {
+    const id = this._uniforms.foilPattern.value as number
+    return (Object.entries(PATTERN_IDS).find(([, v]) => v === id)?.[0] ?? 'full') as FoilPattern
+  }
+  set foilPattern(v: FoilPattern) { (this._uniforms.foilPattern as any).value = PATTERN_IDS[v] ?? 0 }
 
   get lightDirection(): THREE.Vector3 { return this._uniforms.lightDir.value as THREE.Vector3 }
 

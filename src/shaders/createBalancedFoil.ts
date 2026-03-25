@@ -2,21 +2,21 @@ import * as THREE from 'three/webgpu'
 import {
   Fn, float, vec3, vec4, texture, uv, normalize,
   positionWorld, cameraPosition,
-  dot, sin, acos, clamp, max, abs, mix,
+  dot, sin, clamp, max, abs, mix, cross,
   Loop,
 } from 'three/tsl'
 import { createFoilUniforms, type FoilUniforms } from '../core/uniforms'
 import { wavelengthToRGB } from '../core/spectrum'
-import { diffractionSinAngle } from '../core/grating'
 import { sparkleNoise } from '../core/sparkle'
+import { foilPatternMask } from '../core/patterns'
 import type { FoilMaterialOptions, FoilMaterialResult } from './createFastFoil'
 
 const NUM_WAVELENGTHS = 8
 
 /**
- * Tier 2: Balanced quality.
- * Samples 8 wavelengths across visible spectrum, 3 diffraction orders (m=-1,0,+1).
- * Sinc-like intensity falloff. Good default for desktop. ~40 TSL node operations.
+ * Tier 2: Balanced — 8 wavelengths, 3 orders, cross-hatch.
+ * Uses very tight envelopes so only 1-2 wavelengths dominate per pixel,
+ * giving saturated rainbow bands, not washed-out white.
  */
 export function createBalancedFoil(options: FoilMaterialOptions = {}): FoilMaterialResult {
   const uniforms = createFoilUniforms()
@@ -33,16 +33,20 @@ export function createBalancedFoil(options: FoilMaterialOptions = {}): FoilMater
     const tiltX = uniforms.tilt.x
     const tiltY = uniforms.tilt.y
     const n = normalize(vec3(sin(tiltX), sin(tiltY), float(1)))
+
     const lightDir = normalize(vec3(uniforms.lightDir))
     const viewDir = normalize(cameraPosition.sub(positionWorld))
+    const H = normalize(viewDir.add(lightDir))
+    const tangent = normalize(cross(n, vec3(0, 1, 0)))
+    const bitangent = normalize(cross(n, tangent))
 
-    const incidence = acos(clamp(dot(n, lightDir), float(-1), float(1)))
-    const viewAngle = acos(clamp(dot(n, viewDir), float(-1), float(1)))
-    const sinViewAngle = sin(viewAngle)
+    // Diffraction coordinates for two grating directions
+    const diffU = dot(H, tangent).add(uvCoord.x.sub(0.5).mul(0.7)).add(uvCoord.y.sub(0.5).mul(0.3))
+    const diffV = dot(H, bitangent).add(uvCoord.y.sub(0.5).mul(0.6)).add(uvCoord.x.sub(0.5).mul(0.2))
 
     const d = float(1).div(uniforms.gratingDensity)
+    const d2 = d.mul(1.3) // second grating slightly different spacing
 
-    // Accumulate color across wavelengths and orders
     const totalColor = vec3(0, 0, 0).toVar()
 
     Loop(NUM_WAVELENGTHS, ({ i }) => {
@@ -50,40 +54,47 @@ export function createBalancedFoil(options: FoilMaterialOptions = {}): FoilMater
       const lambda = mix(float(380), float(780), t)
       const rgb = wavelengthToRGB(lambda)
 
-      const orderContrib = float(0).toVar()
+      // TIGHT envelope — only wavelengths very close to the diffraction
+      // condition contribute. This keeps colors saturated.
+      // m*λ/d is the sin(θ) where this wavelength diffracts
 
-      // m = -1
-      const r_m1 = diffractionSinAngle(incidence, lambda, float(-1), d)
-      const diff_m1 = abs(r_m1.x.sub(sinViewAngle))
-      const i_m1 = max(float(1).sub(diff_m1.mul(5)), float(0))
-      orderContrib.addAssign(i_m1.mul(i_m1).mul(r_m1.y))
+      // Grating 1: m=+1
+      const target_p1 = lambda.div(d)
+      const w_p1 = max(float(1).sub(abs(diffU.sub(target_p1)).mul(15)), float(0))
 
-      // m = 0 (zeroth order, dimmer)
-      const r_0 = diffractionSinAngle(incidence, lambda, float(0), d)
-      const diff_0 = abs(r_0.x.sub(sinViewAngle))
-      const i_0 = max(float(1).sub(diff_0.mul(5)), float(0))
-      orderContrib.addAssign(i_0.mul(i_0).mul(r_0.y).mul(0.3))
+      // Grating 1: m=-1
+      const target_m1 = lambda.div(d).negate()
+      const w_m1 = max(float(1).sub(abs(diffU.sub(target_m1)).mul(15)), float(0))
 
-      // m = +1
-      const r_p1 = diffractionSinAngle(incidence, lambda, float(1), d)
-      const diff_p1 = abs(r_p1.x.sub(sinViewAngle))
-      const i_p1 = max(float(1).sub(diff_p1.mul(5)), float(0))
-      orderContrib.addAssign(i_p1.mul(i_p1).mul(r_p1.y))
+      // Grating 2 (cross-hatch): m=+1
+      const target2_p1 = lambda.div(d2)
+      const w2_p1 = max(float(1).sub(abs(diffV.sub(target2_p1)).mul(15)), float(0))
 
-      totalColor.addAssign(rgb.mul(orderContrib))
+      // Grating 2: m=-1
+      const target2_m1 = lambda.div(d2).negate()
+      const w2_m1 = max(float(1).sub(abs(diffV.sub(target2_m1)).mul(15)), float(0))
+
+      const totalW = w_p1.add(w_m1).add(w2_p1.mul(0.7)).add(w2_m1.mul(0.7))
+      totalColor.addAssign(rgb.mul(totalW))
     })
 
-    const foilColor = totalColor.div(float(NUM_WAVELENGTHS)).mul(uniforms.foilIntensity)
+    const foilColor = totalColor.mul(uniforms.foilIntensity)
 
-    const NdotV = max(dot(n, viewDir), float(0))
+    // Fresnel
+    const NdotV = max(dot(n, viewDir), float(0.001))
+    const fresnel = float(0.5).add(float(0.5).mul(float(1).sub(NdotV)))
+
     const sparkle = sparkleNoise(uvCoord, NdotV, uniforms.time, uniforms.foilRoughness)
 
     const baseColor = options.baseTexture
       ? texture(options.baseTexture, uvCoord).rgb
-      : vec3(0.15, 0.15, 0.2)
+      : vec3(0.45, 0.45, 0.5)
 
-    const ambient = float(0.65)
-    const finalColor = baseColor.mul(ambient.add(foilColor).add(sparkle.mul(0.3)))
+    // Apply foil pattern mask
+    const mask = foilPatternMask(uvCoord, uniforms.foilPattern)
+
+    // Additive: card art + saturated rainbow
+    const finalColor = baseColor.mul(float(0.7)).add(foilColor.mul(fresnel).mul(mask)).add(sparkle.mul(0.15).mul(mask))
 
     return vec4(finalColor, float(1))
   })
