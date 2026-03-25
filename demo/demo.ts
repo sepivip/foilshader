@@ -138,6 +138,11 @@ async function main() {
     card.maskMode = isColor ? 'color' : 'pattern'
     patternOpts.style.display = isColor ? 'none' : 'block'
     colorOpts.style.display = isColor ? 'block' : 'none'
+    // Color mode always uses Full Holo pattern underneath
+    if (isColor) {
+      card.foilPattern = 'full'
+      foilPatternSelect.value = 'full'
+    }
   })
 
   foilPatternSelect.addEventListener('change', () => {
