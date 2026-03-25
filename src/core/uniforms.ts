@@ -8,11 +8,11 @@ export function createFoilUniforms() {
     /** Light direction (world space, will be normalized in shader) */
     lightDir: uniform(new Vector3(0, 1, 0.5)),
     /** 1/d where d = grating period in nm. Default: 1/1800 (d = 1800nm) */
-    gratingDensity: uniform(1 / 1800),
+    gratingDensity: uniform(1 / 1300),
     /** Foil surface roughness 0–1 */
     foilRoughness: uniform(0.15),
     /** Foil intensity multiplier */
-    foilIntensity: uniform(1.5),
+    foilIntensity: uniform(0.6),
     /** Thin-film thickness in nm (used by Physical tier) */
     foilThickness: uniform(500),
     /** Elapsed time in seconds */
